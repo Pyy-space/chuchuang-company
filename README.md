@@ -1,28 +1,54 @@
-# 🎲 游戏规则 / Game Rules
+# 🎲 Game Rules / 游戏规则
 
-### 准备阶段 / Setup
-- 每位玩家分发3张手牌 / Each player receives 3 cards
-- 每位玩家10枚硬币（值为1） / Each player starts with 10 coins (value 1)
-- 5张牌移除不参与游戏 / 5 cards removed from the game
+## Game Components / 游戏组成
+- **Card System** / 卡牌系统：Total 45 cards across 6 companies / 共45张卡牌，分属6家公司
+  - Company A / A公司：5 cards / 5张
+  - Company B / B公司：6 cards / 6张
+  - Company C / C公司：7 cards / 7张
+  - Company D / D公司：8 cards / 8张
+  - Company E / E公司：9 cards / 9张
+  - Company F / F公司：10 cards / 10张
+- **Coin System** / 硬币系统：Each coin has two sides (value 1 and 3) / 每枚硬币有"1"面和"3"面
+- **Majority Shareholder Markers** / 大股东标记
 
-### 行动阶段 / Actions
-玩家轮流选择以下行动之一 / Players take turns choosing one action:
-1. 从抽牌堆抽一张牌 / Draw from deck
-2. 从市场区抽一张牌 / Draw from market
-3. 打出一张手牌进行投资 / Play a card to invest
+## Setup Phase / 准备阶段
+1. **Shuffle** / 洗牌：Shuffle all 45 cards / 将45张卡牌充分洗混
+2. **Remove Cards** / 移除卡牌：Remove 5 cards from the top (not used this round) / 从牌堆顶部移除5张牌
+3. **Deal Hands** / 分发手牌：Each player receives 3 cards / 每位玩家分发3张手牌
+4. **Distribute Coins** / 分发硬币：Each player starts with 10 coins (value 1 face up) / 每位玩家获得10枚硬币，"1"面朝上
+5. **Setup Market** / 设置市场：Place 5 cards face-up as the market / 翻开5张牌作为市场区域
+6. **Remaining Cards** / 剩余卡牌：Form the draw deck (face down) / 作为抽牌堆（背面朝上）
 
-### 反垄断规则 / Anti-Monopoly Rule
-⚠️ **重要**：持有某公司最多投资牌的玩家（大股东）不能从市场抽取该公司的新牌！
+## Action Phase (Two-Step System) ⭐
+**This is the core game mechanic!** Players take turns. Each turn **must** complete two steps:
 
-### 收益结算 / Settlement
-当抽牌堆耗尽时 / When the deck is empty:
-- 每家公司的大股东获利 / Majority shareholders earn profits
-- 其他玩家每持有一张该公司牌，支付1枚硬币给大股东 / Others pay 1 coin per card to majority shareholders
-- 支付的硬币翻面为"3"，价值提升 / Paid coins flip to value 3
-- 计算每位玩家硬币总价值得分 / Calculate scores based on total coin value
+### Step 1: Take a Card
+Choose one of the following:
 
-### 游戏结束 / Game End
-当所有玩家都作为起始玩家完成一局后，得分最高者获胜。
+**A. Draw from Deck**
+- Draw the top card from the deck
+- **Payment Rule**: Pay 1 coin for each card in the market
+- Place paid coins on the corresponding market cards
+- **Exception**: If you're a majority shareholder and ALL market cards are from your company, draw for FREE
+
+**B. Take from Market**
+- Choose one visible card from the market
+- Collect all coins on that card (if any)
+- Market automatically refills to 5 cards from the deck
+
+### Step 2: Play a Card
+Choose a card from your hand and choose one:
+
+**A. Play to Market**
+- Place the card into the market area (for others to take)
+- **Restriction**: Cannot play the same company card you just took from market
+- **Restriction**: Majority shareholders cannot play their company's cards to market (anti-monopoly rule)
+
+**B. Play to Investment**
+- Place the card face-up in front of you as an investment
+- Invested cards cannot be taken back
+
+**Important**: After completing both steps, you should always have 3 cards in hand
 
 
 ### 前置要求 / Prerequisites
