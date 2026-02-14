@@ -4,17 +4,15 @@ import { GameState, CompanyType, COMPANY_NAMES, COMPANY_COLORS } from '../types/
 interface GameBoardProps {
   gameState: GameState;
   currentPlayerId: string;
-  onDrawFromDeck: () => void;
-  onDrawFromMarket: (cardId: string) => void;
-  onPlayCard: (cardId: string) => void;
+  onTakeCard: (fromDeck: boolean, cardId?: string) => void;
+  onPlayCard: (cardId: string, toMarket: boolean) => void;
   onStartNextRound: () => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
   gameState,
   currentPlayerId,
-  onDrawFromDeck,
-  onDrawFromMarket,
+  onTakeCard,
   onPlayCard,
   onStartNextRound
 }) => {
@@ -22,6 +20,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
   const currentPlayer = gameState.players.find(p => p.id === currentPlayerId);
   const isCurrentTurn = gameState.players[gameState.currentPlayerIndex]?.id === currentPlayerId;
   const currentTurnPlayer = gameState.players[gameState.currentPlayerIndex];
+  const isPendingPlay = gameState.pendingAction === 'WAITING_FOR_PLAY';
 
   if (!currentPlayer) return null;
 
@@ -46,16 +45,20 @@ const GameBoard: React.FC<GameBoardProps> = ({
     return !isMajorityHolder(company);
   };
 
-  const handlePlayCard = (cardId: string) => {
-    onPlayCard(cardId);
+  const handleTakeDeck = () => {
+    onTakeCard(true);
   };
 
-  const handleDrawMarket = (cardId: string) => {
-    onDrawFromMarket(cardId);
+  const handleTakeMarket = (cardId: string) => {
+    onTakeCard(false, cardId);
   };
 
-  const handleDrawDeck = () => {
-    onDrawFromDeck();
+  const handlePlayToInvestment = (cardId: string) => {
+    onPlayCard(cardId, false);
+  };
+
+  const handlePlayToMarket = (cardId: string) => {
+    onPlayCard(cardId, true);
   };
 
   if (gameState.phase === 'FINISHED') {
@@ -128,26 +131,50 @@ const GameBoard: React.FC<GameBoardProps> = ({
           <div className="mb-6">
             <h3 className="text-xl font-semibold mb-3">玩家得分 / Player Scores</h3>
             <div className="space-y-2">
-              {gameState.players.map(player => {
-                const coinValue = player.coins.reduce((sum, coin) => sum + coin.value, 0);
-                return (
+              {gameState.players
+                .map((player, index) => {
+                  const coinValue = player.coins.reduce((sum, coin) => sum + coin.value, 0);
+                  const netValue = coinValue - player.debt;
+                  return { player, coinValue, netValue, index };
+                })
+                .sort((a, b) => b.netValue - a.netValue)
+                .map(({ player, coinValue, netValue }, rankIndex) => (
                   <div
                     key={player.id}
                     className={`p-3 rounded-lg flex justify-between items-center ${
                       player.id === currentPlayerId ? 'bg-blue-100 border-2 border-blue-500' : 'bg-gray-100'
                     }`}
                   >
-                    <span className="font-medium">{player.name}</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-600">
-                        {player.coins.length} coins × avg value
-                      </span>
-                      <span className="text-xl font-bold">+{coinValue}</span>
-                      <span className="text-lg font-semibold">Total: {player.score}</span>
+                      <span className="font-medium">{player.name}</span>
+                      {rankIndex === 0 && <span className="text-xl">🥇</span>}
+                      {rankIndex === 1 && <span className="text-xl">🥈</span>}
+                      {rankIndex === gameState.players.length - 1 && rankIndex > 1 && <span className="text-xl">😢</span>}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm">
+                        <span className="text-gray-600">硬币 / Coins: </span>
+                        <span className="font-semibold">{player.coins.length} (值 / value: {coinValue})</span>
+                      </div>
+                      {player.debt > 0 && (
+                        <span className="text-sm text-red-600 font-semibold">
+                          债务 / Debt: -{player.debt}
+                        </span>
+                      )}
+                      <div className="text-sm">
+                        <span className="text-gray-600">净值 / Net: </span>
+                        <span className="font-semibold">{netValue}</span>
+                      </div>
+                      <div className={`text-lg font-bold ${
+                        player.roundScore > 0 ? 'text-green-600' : 
+                        player.roundScore < 0 ? 'text-red-600' : 'text-gray-600'
+                      }`}>
+                        {player.roundScore > 0 ? '+' : ''}{player.roundScore}分
+                      </div>
+                      <span className="text-lg font-semibold">总分 / Total: {player.score}</span>
                     </div>
                   </div>
-                );
-              })}
+                ))}
             </div>
           </div>
 
@@ -174,7 +201,15 @@ const GameBoard: React.FC<GameBoardProps> = ({
             <h2 className="text-2xl font-bold">第 {gameState.round} 轮 / Round {gameState.round}</h2>
             <p className="text-sm text-gray-600">
               当前玩家 / Current: <span className="font-semibold">{currentTurnPlayer?.name}</span>
-              {isCurrentTurn && <span className="ml-2 text-green-600">（你的回合 / Your Turn）</span>}
+              {isCurrentTurn && (
+                <span className="ml-2">
+                  {isPendingPlay ? (
+                    <span className="text-orange-600">（你的回合 - 打出一张牌 / Your Turn - Play a Card）</span>
+                  ) : (
+                    <span className="text-green-600">（你的回合 - 拿取一张牌 / Your Turn - Take a Card）</span>
+                  )}
+                </span>
+              )}
             </p>
           </div>
           <div className="text-right">
@@ -271,11 +306,13 @@ const GameBoard: React.FC<GameBoardProps> = ({
             <div className="flex flex-wrap gap-2">
               {gameState.market.map(card => {
                 const canDraw = canDrawMarketCard(card.company);
+                const canTake = !isPendingPlay && isCurrentTurn && canDraw;
+                const coinCount = card.coinsOnCard?.length || 0;
                 return (
                   <button
                     key={card.id}
-                    onClick={() => isCurrentTurn && canDraw && handleDrawMarket(card.id)}
-                    disabled={!isCurrentTurn || !canDraw}
+                    onClick={() => canTake && handleTakeMarket(card.id)}
+                    disabled={!canTake}
                     className="relative w-20 h-28 rounded-lg shadow-md transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ backgroundColor: COMPANY_COLORS[card.company] }}
                   >
@@ -283,6 +320,11 @@ const GameBoard: React.FC<GameBoardProps> = ({
                       <div className="text-2xl">{card.company}</div>
                       <div className="text-xs mt-1">{COMPANY_NAMES[card.company]}</div>
                     </div>
+                    {coinCount > 0 && (
+                      <div className="absolute top-1 right-1 bg-yellow-400 text-yellow-900 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                        {coinCount}
+                      </div>
+                    )}
                     {!canDraw && (
                       <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
                         <span className="text-white text-2xl">🚫</span>
@@ -297,35 +339,88 @@ const GameBoard: React.FC<GameBoardProps> = ({
           {/* Deck */}
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-lg font-semibold mb-3">抽牌堆 / Deck ({gameState.deck.length})</h3>
-            <button
-              onClick={() => isCurrentTurn && handleDrawDeck()}
-              disabled={!isCurrentTurn || gameState.deck.length === 0}
-              className="w-20 h-28 rounded-lg shadow-md bg-gradient-to-br from-gray-600 to-gray-800 text-white font-bold transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <div className="text-center">
-                <div className="text-3xl">🎴</div>
-                <div className="text-xs mt-1">{gameState.deck.length}</div>
-              </div>
-            </button>
+            <div className="flex items-start gap-4">
+              <button
+                onClick={() => !isPendingPlay && isCurrentTurn && handleTakeDeck()}
+                disabled={isPendingPlay || !isCurrentTurn || gameState.deck.length === 0}
+                className="w-20 h-28 rounded-lg shadow-md bg-gradient-to-br from-gray-600 to-gray-800 text-white font-bold transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="text-center">
+                  <div className="text-3xl">🎴</div>
+                  <div className="text-xs mt-1">抽牌</div>
+                  <div className="text-xs">Draw</div>
+                </div>
+              </button>
+              {gameState.market.length > 0 && (
+                <div className="flex-1 bg-yellow-50 border border-yellow-300 rounded p-2 text-sm">
+                  <p className="font-semibold text-yellow-800">💰 抽牌成本 / Draw Cost</p>
+                  <p className="text-xs text-yellow-700">
+                    从牌堆抽牌需支付 {gameState.market.length} 枚硬币（每张市场牌1枚）
+                  </p>
+                  <p className="text-xs text-yellow-700">
+                    Drawing from deck costs {gameState.market.length} coin(s) (1 per market card)
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    你的硬币 / Your coins: {currentPlayer.coins.length}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Hand Cards */}
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-lg font-semibold mb-3">你的手牌 / Your Hand ({currentPlayer.handCards.length})</h3>
-            <div className="flex flex-wrap gap-2">
+            {isPendingPlay && isCurrentTurn && (
+              <div className="mb-3 bg-orange-50 border border-orange-300 rounded p-2 text-sm">
+                <p className="font-semibold text-orange-800">
+                  ⚠️ 选择一张牌打出 / Choose a card to play
+                </p>
+                <p className="text-xs text-orange-700">
+                  点击卡牌下方按钮选择打到市场或投资 / Click buttons below cards to play to market or invest
+                </p>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3">
               {currentPlayer.handCards.map(card => (
-                <button
-                  key={card.id}
-                  onClick={() => isCurrentTurn && handlePlayCard(card.id)}
-                  disabled={!isCurrentTurn}
-                  className="w-20 h-28 rounded-lg shadow-md transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: COMPANY_COLORS[card.company] }}
-                >
-                  <div className="text-white font-bold text-center p-2">
-                    <div className="text-2xl">{card.company}</div>
-                    <div className="text-xs mt-1">{COMPANY_NAMES[card.company]}</div>
+                <div key={card.id} className="flex flex-col items-center gap-1">
+                  <div
+                    className="w-20 h-28 rounded-lg shadow-md flex items-center justify-center"
+                    style={{ backgroundColor: COMPANY_COLORS[card.company] }}
+                  >
+                    <div className="text-white font-bold text-center p-2">
+                      <div className="text-2xl">{card.company}</div>
+                      <div className="text-xs mt-1">{COMPANY_NAMES[card.company]}</div>
+                    </div>
                   </div>
-                </button>
+                  {isPendingPlay && isCurrentTurn && (
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => handlePlayToInvestment(card.id)}
+                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                      >
+                        投资
+                      </button>
+                      <button
+                        onClick={() => handlePlayToMarket(card.id)}
+                        disabled={
+                          isMajorityHolder(card.company) || 
+                          (gameState.lastCardTaken?.fromMarket && gameState.lastCardTaken.company === card.company)
+                        }
+                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={
+                          isMajorityHolder(card.company)
+                            ? "大股东不能打到市场"
+                            : gameState.lastCardTaken?.fromMarket && gameState.lastCardTaken.company === card.company
+                            ? "不能打出刚从市场拿的同公司牌"
+                            : ""
+                        }
+                      >
+                        市场
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
@@ -368,9 +463,11 @@ const GameBoard: React.FC<GameBoardProps> = ({
               {gameState.actionHistory.slice(-10).reverse().map((action, i) => (
                 <div key={i} className="text-sm text-gray-600">
                   <span className="font-medium">{action.playerName}</span>
-                  {action.type === 'DRAW_DECK' && ' 从牌堆抽牌 / drew from deck'}
-                  {action.type === 'DRAW_MARKET' && ` 从市场抽取${action.company} / drew ${action.company} from market`}
-                  {action.type === 'PLAY_CARD' && ` 投资${action.company} / invested in ${action.company}`}
+                  {action.type === 'TAKE_CARD' && (action.fromMarket 
+                    ? ` 从市场拿取${action.company} / took ${action.company} from market`
+                    : ' 从牌堆抽牌 / drew from deck')}
+                  {action.type === 'PLAY_TO_MARKET' && ` 打出${action.company}到市场 / played ${action.company} to market`}
+                  {action.type === 'PLAY_TO_INVESTMENT' && ` 投资${action.company} / invested in ${action.company}`}
                 </div>
               ))}
             </div>
