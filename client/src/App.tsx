@@ -17,8 +17,7 @@ const GameContainer: React.FC = () => {
     createRoom,
     joinRoom,
     setReady,
-    drawFromDeck,
-    drawFromMarket,
+    takeCard,
     playCard,
     startNextRound
   } = useGame();
@@ -50,9 +49,8 @@ const GameContainer: React.FC = () => {
       <GameBoard
         gameState={gameState}
         currentPlayerId={socket?.id || ''}
-        onDrawFromDeck={() => room && drawFromDeck(room.id)}
-        onDrawFromMarket={(cardId) => room && drawFromMarket(room.id, cardId)}
-        onPlayCard={(cardId) => room && playCard(room.id, cardId)}
+        onTakeCard={(fromDeck, cardId) => room && takeCard(room.id, fromDeck, cardId)}
+        onPlayCard={(cardId, toMarket) => room && playCard(room.id, cardId, toMarket)}
         onStartNextRound={() => room && startNextRound(room.id)}
       />
     );

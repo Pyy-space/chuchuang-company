@@ -74,19 +74,14 @@ export const useGame = () => {
     socket.emit('setReady', { roomId, isReady });
   }, [socket]);
 
-  const drawFromDeck = useCallback((roomId: string) => {
+  const takeCard = useCallback((roomId: string, fromDeck: boolean, cardId?: string) => {
     if (!socket) return;
-    socket.emit('drawFromDeck', { roomId });
+    socket.emit('takeCard', { roomId, fromDeck, cardId });
   }, [socket]);
 
-  const drawFromMarket = useCallback((roomId: string, cardId: string) => {
+  const playCard = useCallback((roomId: string, cardId: string, toMarket: boolean) => {
     if (!socket) return;
-    socket.emit('drawFromMarket', { roomId, cardId });
-  }, [socket]);
-
-  const playCard = useCallback((roomId: string, cardId: string) => {
-    if (!socket) return;
-    socket.emit('playCard', { roomId, cardId });
+    socket.emit('playCard', { roomId, cardId, toMarket });
   }, [socket]);
 
   const startNextRound = useCallback((roomId: string) => {
@@ -104,8 +99,7 @@ export const useGame = () => {
     createRoom,
     joinRoom,
     setReady,
-    drawFromDeck,
-    drawFromMarket,
+    takeCard,
     playCard,
     startNextRound
   };

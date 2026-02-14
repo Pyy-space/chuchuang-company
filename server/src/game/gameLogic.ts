@@ -6,7 +6,15 @@ import { Card, Coin, CompanyType, GameState, Player, MajorityHolder } from '../t
  */
 
 const COMPANIES: CompanyType[] = ['A', 'B', 'C', 'D', 'E', 'F'];
-const CARDS_PER_COMPANY = 12; // Each company has 12 cards
+// Cards per company according to original board game rules
+const CARDS_PER_COMPANY: Record<CompanyType, number> = {
+  A: 5,
+  B: 6,
+  C: 7,
+  D: 8,
+  E: 9,
+  F: 10
+}; // Total: 45 cards
 const INITIAL_HAND_SIZE = 3;
 const INITIAL_COINS = 10;
 const REMOVED_CARDS_COUNT = 5;
@@ -14,12 +22,13 @@ const MARKET_SIZE = 5; // Number of visible cards in market
 
 /**
  * Create a full deck of cards
- * 创建完整牌堆
+ * 创建完整牌堆 - Total 45 cards (A:5, B:6, C:7, D:8, E:9, F:10)
  */
 export function createDeck(): Card[] {
   const deck: Card[] = [];
   COMPANIES.forEach(company => {
-    for (let i = 0; i < CARDS_PER_COMPANY; i++) {
+    const count = CARDS_PER_COMPANY[company];
+    for (let i = 0; i < count; i++) {
       deck.push({
         id: `${company}-${i}`,
         company
@@ -60,15 +69,16 @@ export function createInitialCoins(): Coin[] {
 /**
  * Initialize game state
  * 初始化游戏状态
+ * Correct order: shuffle → remove 5 cards → deal hands
  */
 export function initializeGame(roomId: string, players: Player[]): GameState {
   // Create and shuffle deck
   let deck = shuffleArray(createDeck());
   
-  // Remove 5 cards from the game
+  // FIRST: Remove 5 cards from the game (before dealing)
   const removedCards = deck.splice(0, REMOVED_CARDS_COUNT);
   
-  // Deal initial hands
+  // SECOND: Deal initial hands
   players.forEach(player => {
     player.handCards = deck.splice(0, INITIAL_HAND_SIZE);
     player.coins = createInitialCoins();
@@ -81,6 +91,8 @@ export function initializeGame(roomId: string, players: Player[]): GameState {
       F: []
     };
     player.score = 0;
+    player.roundScore = 0;
+    player.debt = 0;
   });
   
   // Setup market area
@@ -98,7 +110,8 @@ export function initializeGame(roomId: string, players: Player[]): GameState {
     round: 1,
     startingPlayerIndex: 0,
     roundsCompleted: 0,
-    actionHistory: []
+    actionHistory: [],
+    pendingAction: 'NONE'
   };
 }
 
@@ -150,8 +163,50 @@ export function canDrawFromMarket(
 }
 
 /**
+ * Check if player can play a card to market (anti-monopoly rule)
+ * 检查玩家是否可以打牌到市场（反垄断规则）
+ * Majority holder cannot play their company's card to market
+ */
+export function canPlayToMarket(
+  playerId: string,
+  cardCompany: CompanyType,
+  majorityHolders: MajorityHolder[]
+): boolean {
+  const holder = majorityHolders.find(h => h.company === cardCompany);
+  // Majority holder cannot play to market
+  return !holder || holder.playerId !== playerId;
+}
+
+/**
+ * Check if player should pay coins when drawing from deck
+ * 检查玩家从牌堆抽牌时是否需要支付硬币
+ * Free if player is majority holder and market is full of their company's cards
+ */
+export function shouldPayForDeckDraw(
+  playerId: string,
+  market: Card[],
+  majorityHolders: MajorityHolder[]
+): boolean {
+  if (market.length === 0) return false;
+  
+  // Check if player is majority holder of any company
+  const playerMajorityCompanies = majorityHolders
+    .filter(h => h.playerId === playerId)
+    .map(h => h.company);
+  
+  if (playerMajorityCompanies.length === 0) return true;
+  
+  // Check if ALL market cards belong to one of player's majority companies
+  const allCardsAreMajority = market.every(card => 
+    playerMajorityCompanies.includes(card.company)
+  );
+  
+  return !allCardsAreMajority; // Don't pay if all market cards are from majority company
+}
+
+/**
  * Perform settlement when deck is empty
- * 执行结算
+ * 执行结算 - Updated with ranking-based scoring system
  */
 export function performSettlement(gameState: GameState): GameState {
   const { players } = gameState;
@@ -174,22 +229,66 @@ export function performSettlement(gameState: GameState): GameState {
       const investmentCount = player.investments[company].length;
       if (investmentCount === 0) return; // No investment, no payment
       
-      // Transfer coins from player to majority holder
-      const coinsToTransfer = player.coins.splice(0, Math.min(investmentCount, player.coins.length));
+      // Calculate coins to pay
+      const coinsNeeded = investmentCount;
+      const coinsAvailable = player.coins.length;
       
-      // Flip coins to value 3
-      coinsToTransfer.forEach(coin => {
-        coin.value = 3;
-      });
-      
-      majorityPlayer.coins.push(...coinsToTransfer);
+      if (coinsAvailable >= coinsNeeded) {
+        // Player can pay - transfer coins
+        const coinsToTransfer = player.coins.splice(0, coinsNeeded);
+        
+        // Flip coins to value 3
+        coinsToTransfer.forEach(coin => {
+          coin.value = 3;
+        });
+        
+        majorityPlayer.coins.push(...coinsToTransfer);
+      } else {
+        // Player cannot pay fully - record debt
+        const coinsToTransfer = player.coins.splice(0, coinsAvailable);
+        
+        // Flip coins to value 3
+        coinsToTransfer.forEach(coin => {
+          coin.value = 3;
+        });
+        
+        majorityPlayer.coins.push(...coinsToTransfer);
+        
+        // Record debt for remaining coins
+        player.debt += (coinsNeeded - coinsAvailable);
+      }
     });
   });
   
-  // Calculate scores based on coin values
-  players.forEach(player => {
-    const totalValue = player.coins.reduce((sum, coin) => sum + coin.value, 0);
-    player.score += totalValue;
+  // Calculate coin values for ranking
+  const playerRankings = players.map(player => {
+    const coinValue = player.coins.reduce((sum, coin) => sum + coin.value, 0);
+    const netValue = coinValue - player.debt; // Subtract debt from coin value
+    return {
+      player,
+      coinValue,
+      netValue
+    };
+  }).sort((a, b) => b.netValue - a.netValue); // Sort by net value descending
+  
+  // Assign round scores based on ranking
+  playerRankings.forEach((ranking, index) => {
+    if (index === 0) {
+      // First place: +2
+      ranking.player.roundScore = 2;
+    } else if (index === 1) {
+      // Second place: +1
+      ranking.player.roundScore = 1;
+    } else if (index === playerRankings.length - 1) {
+      // Last place: -1
+      ranking.player.roundScore = -1;
+    } else {
+      // Others: 0
+      ranking.player.roundScore = 0;
+    }
+    
+    // Add round score to total score
+    ranking.player.score += ranking.player.roundScore;
   });
   
   return {
@@ -210,15 +309,18 @@ export function shouldEndGame(gameState: GameState): boolean {
 /**
  * Start a new round
  * 开始新一轮
+ * Correct order: shuffle → remove 5 cards → deal hands
  */
 export function startNewRound(gameState: GameState): GameState {
   const { players } = gameState;
   
-  // Reset for new round
+  // Create and shuffle new deck
   let deck = shuffleArray(createDeck());
+  
+  // FIRST: Remove 5 cards from the game (before dealing)
   const removedCards = deck.splice(0, REMOVED_CARDS_COUNT);
   
-  // Reset player states
+  // SECOND: Reset player states and deal hands
   players.forEach(player => {
     player.handCards = deck.splice(0, INITIAL_HAND_SIZE);
     player.coins = createInitialCoins();
@@ -230,6 +332,8 @@ export function startNewRound(gameState: GameState): GameState {
       E: [],
       F: []
     };
+    player.roundScore = 0;
+    player.debt = 0;
   });
   
   const market = deck.splice(0, Math.min(MARKET_SIZE, deck.length));
@@ -248,7 +352,8 @@ export function startNewRound(gameState: GameState): GameState {
     majorityHolders: [],
     round: gameState.round + 1,
     roundsCompleted: gameState.roundsCompleted + 1,
-    actionHistory: []
+    actionHistory: [],
+    pendingAction: 'NONE'
   };
 }
 

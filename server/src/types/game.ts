@@ -4,6 +4,7 @@ export type CompanyType = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 export interface Card {
   id: string;
   company: CompanyType;
+  coinsOnCard?: Coin[]; // Coins placed on market cards when drawing from deck
 }
 
 export interface Coin {
@@ -18,6 +19,8 @@ export interface Player {
   investments: Record<CompanyType, Card[]>; // Cards played for each company
   coins: Coin[];
   score: number;
+  roundScore: number; // Score from current round (+2, +1, -1, or 0)
+  debt: number; // Negative assets when unable to pay
   isReady: boolean;
 }
 
@@ -27,6 +30,8 @@ export interface MajorityHolder {
 }
 
 export type GamePhase = 'WAITING' | 'PLAYING' | 'SETTLEMENT' | 'FINISHED';
+
+export type PendingAction = 'NONE' | 'WAITING_FOR_PLAY'; // Track two-step action phase
 
 export interface GameState {
   roomId: string;
@@ -41,14 +46,17 @@ export interface GameState {
   startingPlayerIndex: number; // Starting player for this round
   roundsCompleted: number; // Number of complete rounds
   actionHistory: GameAction[];
+  pendingAction: PendingAction; // Track if player needs to complete second step
+  lastCardTaken?: { company: CompanyType; fromMarket: boolean }; // Track card taken in step 1
 }
 
 export interface GameAction {
   playerId: string;
   playerName: string;
-  type: 'DRAW_DECK' | 'DRAW_MARKET' | 'PLAY_CARD' | 'SETTLEMENT';
+  type: 'TAKE_CARD' | 'PLAY_TO_MARKET' | 'PLAY_TO_INVESTMENT' | 'SETTLEMENT';
   cardId?: string;
   company?: CompanyType;
+  fromMarket?: boolean;
   timestamp: number;
 }
 

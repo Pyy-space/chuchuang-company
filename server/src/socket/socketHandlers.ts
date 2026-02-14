@@ -23,6 +23,8 @@ export function setupSocketHandlers(io: Server) {
           investments: { A: [], B: [], C: [], D: [], E: [], F: [] },
           coins: [],
           score: 0,
+          roundScore: 0,
+          debt: 0,
           isReady: false
         };
         
@@ -57,6 +59,8 @@ export function setupSocketHandlers(io: Server) {
           investments: { A: [], B: [], C: [], D: [], E: [], F: [] },
           coins: [],
           score: 0,
+          roundScore: 0,
+          debt: 0,
           isReady: false
         };
         
@@ -87,8 +91,8 @@ export function setupSocketHandlers(io: Server) {
       }
     });
     
-    // Draw card from deck
-    socket.on('drawFromDeck', (data: { roomId: string }) => {
+    // Step 1: Take a card (from deck or market)
+    socket.on('takeCard', (data: { roomId: string; fromDeck: boolean; cardId?: string }) => {
       const room = roomManager.getRoom(data.roomId);
       if (!room || !room.gameState) return;
       
@@ -100,25 +104,184 @@ export function setupSocketHandlers(io: Server) {
         return;
       }
       
-      if (gameState.deck.length === 0) {
-        socket.emit('error', { message: 'Deck is empty' });
+      if (gameState.pendingAction !== 'NONE') {
+        socket.emit('error', { message: 'Complete current action first' });
         return;
       }
       
-      // Draw card
-      const card = gameState.deck.shift()!;
+      let card: Card;
+      let fromMarket = false;
+      
+      if (data.fromDeck) {
+        // Take from deck
+        if (gameState.deck.length === 0) {
+          socket.emit('error', { message: 'Deck is empty' });
+          return;
+        }
+        
+        // Check if player needs to pay coins
+        const mustPay = gameLogic.shouldPayForDeckDraw(socket.id, gameState.market, gameState.majorityHolders);
+        
+        if (mustPay && gameState.market.length > 0) {
+          // Pay 1 coin per market card
+          const coinsNeeded = gameState.market.length;
+          
+          if (player.coins.length < coinsNeeded) {
+            socket.emit('error', { message: `Need ${coinsNeeded} coins to draw from deck` });
+            return;
+          }
+          
+          // Place coins on market cards
+          for (let i = 0; i < Math.min(coinsNeeded, gameState.market.length); i++) {
+            const marketCard = gameState.market[i];
+            const coin = player.coins.shift();
+            if (coin) {
+              if (!marketCard.coinsOnCard) {
+                marketCard.coinsOnCard = [];
+              }
+              marketCard.coinsOnCard.push(coin);
+            }
+          }
+        }
+        
+        card = gameState.deck.shift()!;
+        fromMarket = false;
+      } else {
+        // Take from market
+        if (!data.cardId) {
+          socket.emit('error', { message: 'Card ID required for market draw' });
+          return;
+        }
+        
+        const cardIndex = gameState.market.findIndex(c => c.id === data.cardId);
+        if (cardIndex === -1) {
+          socket.emit('error', { message: 'Card not found in market' });
+          return;
+        }
+        
+        card = gameState.market[cardIndex];
+        
+        // Check anti-monopoly rule
+        if (!gameLogic.canDrawFromMarket(socket.id, card.company, gameState.majorityHolders)) {
+          socket.emit('error', { message: 'Cannot draw - you are majority holder of this company' });
+          return;
+        }
+        
+        // Remove card from market
+        gameState.market.splice(cardIndex, 1);
+        
+        // Collect coins on the card
+        if (card.coinsOnCard && card.coinsOnCard.length > 0) {
+          player.coins.push(...card.coinsOnCard);
+          card.coinsOnCard = [];
+        }
+        
+        // Refill market from deck
+        room.gameState = gameLogic.refillMarket(gameState);
+        
+        fromMarket = true;
+      }
+      
+      // Add card to player's hand
       player.handCards.push(card);
       
       // Add to action history
       const action: GameAction = {
         playerId: socket.id,
         playerName: player.name,
-        type: 'DRAW_DECK',
+        type: 'TAKE_CARD',
         cardId: card.id,
         company: card.company,
+        fromMarket,
         timestamp: Date.now()
       };
       gameState.actionHistory.push(action);
+      
+      // Set pending action and track what was taken
+      gameState.pendingAction = 'WAITING_FOR_PLAY';
+      gameState.lastCardTaken = {
+        company: card.company,
+        fromMarket
+      };
+      
+      io.to(data.roomId).emit('gameUpdate', sanitizeGameState(gameState, socket.id));
+    });
+    
+    // Step 2: Play a card (to market or to investment)
+    socket.on('playCard', (data: { roomId: string; cardId: string; toMarket: boolean }) => {
+      const room = roomManager.getRoom(data.roomId);
+      if (!room || !room.gameState) return;
+      
+      const gameState = room.gameState;
+      const player = gameState.players.find(p => p.id === socket.id);
+      
+      if (!player || gameState.currentPlayerIndex !== gameState.players.indexOf(player)) {
+        socket.emit('error', { message: 'Not your turn' });
+        return;
+      }
+      
+      if (gameState.pendingAction !== 'WAITING_FOR_PLAY') {
+        socket.emit('error', { message: 'Must take a card first' });
+        return;
+      }
+      
+      const cardIndex = player.handCards.findIndex(c => c.id === data.cardId);
+      if (cardIndex === -1) {
+        socket.emit('error', { message: 'Card not in hand' });
+        return;
+      }
+      
+      const card = player.handCards[cardIndex];
+      
+      if (data.toMarket) {
+        // Playing to market
+        
+        // Check anti-monopoly rule: majority holder cannot play to market
+        if (!gameLogic.canPlayToMarket(socket.id, card.company, gameState.majorityHolders)) {
+          socket.emit('error', { message: 'Majority holder cannot play to market' });
+          return;
+        }
+        
+        // Check restriction: cannot play same company card to market if just taken from market
+        if (gameState.lastCardTaken?.fromMarket && gameState.lastCardTaken.company === card.company) {
+          socket.emit('error', { message: 'Cannot play same company card to market after taking from market' });
+          return;
+        }
+        
+        // Remove from hand and add to market
+        player.handCards.splice(cardIndex, 1);
+        gameState.market.push(card);
+        
+        // Add to action history
+        const action: GameAction = {
+          playerId: socket.id,
+          playerName: player.name,
+          type: 'PLAY_TO_MARKET',
+          cardId: card.id,
+          company: card.company,
+          timestamp: Date.now()
+        };
+        gameState.actionHistory.push(action);
+      } else {
+        // Playing to investment
+        player.handCards.splice(cardIndex, 1);
+        player.investments[card.company].push(card);
+        
+        // Add to action history
+        const action: GameAction = {
+          playerId: socket.id,
+          playerName: player.name,
+          type: 'PLAY_TO_INVESTMENT',
+          cardId: card.id,
+          company: card.company,
+          timestamp: Date.now()
+        };
+        gameState.actionHistory.push(action);
+      }
+      
+      // Clear pending action
+      gameState.pendingAction = 'NONE';
+      gameState.lastCardTaken = undefined;
       
       // Move to next player
       gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
@@ -127,7 +290,7 @@ export function setupSocketHandlers(io: Server) {
       gameState.majorityHolders = gameLogic.calculateMajorityHolders(gameState.players);
       
       // Check if deck is empty - trigger settlement
-      if (gameState.deck.length === 0) {
+      if (gameState.deck.length === 0 && gameState.market.length === 0) {
         room.gameState = gameLogic.performSettlement(gameState);
         io.to(data.roomId).emit('gameUpdate', sanitizeGameState(room.gameState, socket.id));
         io.to(data.roomId).emit('settlement', room.gameState);
@@ -140,103 +303,6 @@ export function setupSocketHandlers(io: Server) {
       } else {
         io.to(data.roomId).emit('gameUpdate', sanitizeGameState(gameState, socket.id));
       }
-    });
-    
-    // Draw card from market
-    socket.on('drawFromMarket', (data: { roomId: string; cardId: string }) => {
-      const room = roomManager.getRoom(data.roomId);
-      if (!room || !room.gameState) return;
-      
-      const gameState = room.gameState;
-      const player = gameState.players.find(p => p.id === socket.id);
-      
-      if (!player || gameState.currentPlayerIndex !== gameState.players.indexOf(player)) {
-        socket.emit('error', { message: 'Not your turn' });
-        return;
-      }
-      
-      const cardIndex = gameState.market.findIndex(c => c.id === data.cardId);
-      if (cardIndex === -1) {
-        socket.emit('error', { message: 'Card not found in market' });
-        return;
-      }
-      
-      const card = gameState.market[cardIndex];
-      
-      // Check anti-monopoly rule
-      if (!gameLogic.canDrawFromMarket(socket.id, card.company, gameState.majorityHolders)) {
-        socket.emit('error', { message: 'Cannot draw - you are majority holder of this company' });
-        return;
-      }
-      
-      // Draw card
-      gameState.market.splice(cardIndex, 1);
-      player.handCards.push(card);
-      
-      // Refill market
-      room.gameState = gameLogic.refillMarket(gameState);
-      
-      // Add to action history
-      const action: GameAction = {
-        playerId: socket.id,
-        playerName: player.name,
-        type: 'DRAW_MARKET',
-        cardId: card.id,
-        company: card.company,
-        timestamp: Date.now()
-      };
-      gameState.actionHistory.push(action);
-      
-      // Move to next player
-      gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-      
-      // Update majority holders
-      gameState.majorityHolders = gameLogic.calculateMajorityHolders(gameState.players);
-      
-      io.to(data.roomId).emit('gameUpdate', sanitizeGameState(gameState, socket.id));
-    });
-    
-    // Play card
-    socket.on('playCard', (data: { roomId: string; cardId: string }) => {
-      const room = roomManager.getRoom(data.roomId);
-      if (!room || !room.gameState) return;
-      
-      const gameState = room.gameState;
-      const player = gameState.players.find(p => p.id === socket.id);
-      
-      if (!player || gameState.currentPlayerIndex !== gameState.players.indexOf(player)) {
-        socket.emit('error', { message: 'Not your turn' });
-        return;
-      }
-      
-      const cardIndex = player.handCards.findIndex(c => c.id === data.cardId);
-      if (cardIndex === -1) {
-        socket.emit('error', { message: 'Card not in hand' });
-        return;
-      }
-      
-      // Play card
-      const card = player.handCards.splice(cardIndex, 1)[0];
-      player.investments[card.company].push(card);
-      
-      // Add to action history
-      const action: GameAction = {
-        playerId: socket.id,
-        playerName: player.name,
-        type: 'PLAY_CARD',
-        cardId: card.id,
-        company: card.company,
-        timestamp: Date.now()
-      };
-      gameState.actionHistory.push(action);
-      
-      // Move to next player
-      gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
-      
-      // Update majority holders
-      gameState.majorityHolders = gameLogic.calculateMajorityHolders(gameState.players);
-      
-      io.to(data.roomId).emit('gameUpdate', sanitizeGameState(gameState, socket.id));
     });
     
     // Start next round
