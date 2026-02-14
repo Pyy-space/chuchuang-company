@@ -116,8 +116,9 @@ export function getAllRooms(): Room[] {
 /**
  * Clean up old empty rooms
  * 清理旧的空房间
+ * Default: 24 hours for empty rooms
  */
-export function cleanupOldRooms(maxAge: number = 3600000): void {
+export function cleanupOldRooms(maxAge: number = 86400000): void {
   const now = Date.now();
   rooms.forEach((room, roomId) => {
     if (room.players.length === 0 && now - room.createdAt > maxAge) {
