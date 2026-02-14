@@ -132,7 +132,7 @@ export function setupSocketHandlers(io: Server) {
           }
           
           // Place coins on market cards
-          for (let i = 0; i < Math.min(coinsNeeded, gameState.market.length); i++) {
+          for (let i = 0; i < coinsNeeded; i++) {
             const marketCard = gameState.market[i];
             const coin = player.coins.shift();
             if (coin) {

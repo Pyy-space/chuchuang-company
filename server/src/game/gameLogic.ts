@@ -180,7 +180,7 @@ export function canPlayToMarket(
 /**
  * Check if player should pay coins when drawing from deck
  * 检查玩家从牌堆抽牌时是否需要支付硬币
- * Free if player is majority holder and market is full of their company's cards
+ * Free if player is majority holder and market is full of that company's cards
  */
 export function shouldPayForDeckDraw(
   playerId: string,
@@ -196,12 +196,12 @@ export function shouldPayForDeckDraw(
   
   if (playerMajorityCompanies.length === 0) return true;
   
-  // Check if ALL market cards belong to one of player's majority companies
-  const allCardsAreMajority = market.every(card => 
-    playerMajorityCompanies.includes(card.company)
-  );
+  // Check if ALL market cards belong to the same company
+  const firstCardCompany = market[0].company;
+  const allSameCompany = market.every(card => card.company === firstCardCompany);
   
-  return !allCardsAreMajority; // Don't pay if all market cards are from majority company
+  // Free draw only if all cards are from the same company AND player is majority holder of that company
+  return !(allSameCompany && playerMajorityCompanies.includes(firstCardCompany));
 }
 
 /**

@@ -149,7 +149,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                       <span className="font-medium">{player.name}</span>
                       {rankIndex === 0 && <span className="text-xl">🥇</span>}
                       {rankIndex === 1 && <span className="text-xl">🥈</span>}
-                      {rankIndex === gameState.players.length - 1 && rankIndex > 1 && <span className="text-xl">😢</span>}
+                      {rankIndex === gameState.players.length - 1 && <span className="text-xl">😢</span>}
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-sm">
