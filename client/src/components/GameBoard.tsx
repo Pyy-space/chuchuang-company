@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { GameState, CompanyType, COMPANY_NAMES, COMPANY_COLORS } from '../types/game';
 
 interface GameBoardProps {
@@ -18,8 +18,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
   onPlayCard,
   onStartNextRound
 }) => {
-  const [selectedHandCard, setSelectedHandCard] = useState<string | null>(null);
-  const [showActions, setShowActions] = useState(false);
   
   const currentPlayer = gameState.players.find(p => p.id === currentPlayerId);
   const isCurrentTurn = gameState.players[gameState.currentPlayerIndex]?.id === currentPlayerId;
@@ -50,18 +48,14 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
   const handlePlayCard = (cardId: string) => {
     onPlayCard(cardId);
-    setSelectedHandCard(null);
-    setShowActions(false);
   };
 
   const handleDrawMarket = (cardId: string) => {
     onDrawFromMarket(cardId);
-    setShowActions(false);
   };
 
   const handleDrawDeck = () => {
     onDrawFromDeck();
-    setShowActions(false);
   };
 
   if (gameState.phase === 'FINISHED') {
@@ -211,7 +205,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
             {/* Coins Display */}
             <div className="mt-3 flex flex-wrap gap-1">
-              {currentPlayer.coins.map((coin, i) => (
+              {currentPlayer.coins.map((coin) => (
                 <div
                   key={coin.id}
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
