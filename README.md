@@ -1,26 +1,4 @@
-# 初创公司投资游戏 / Startup Investment Game
-
-一个支持3-7人的多人在线桌游，模拟投资经营类卡牌游戏。
-
-A multiplayer online board game for 3-7 players, simulating an investment-based card game.
-
-## 🎮 游戏介绍 / Game Overview
-
-玩家通过投资6家不同的公司、争夺大股东地位来获取收益。游戏时长约20分钟/局。
-
-Players invest in 6 different companies and compete to become majority shareholders to earn profits. Each game lasts approximately 20 minutes.
-
-## ✨ 主要特性 / Key Features
-
-- 🎯 支持3-7人实时在线对战 / Real-time multiplayer for 3-7 players
-- 🏢 6家公司的投资系统 / Investment system with 6 companies
-- 💰 硬币双面增值机制 / Dual-sided coin appreciation system
-- 🔒 反垄断规则 / Anti-monopoly rules
-- 📊 实时结算系统 / Real-time settlement system
-- 🎨 响应式设计 / Responsive design
-- 🔄 多轮游戏支持 / Multi-round gameplay
-
-## 🎲 游戏规则 / Game Rules
+# 🎲 游戏规则 / Game Rules
 
 ### 准备阶段 / Setup
 - 每位玩家分发3张手牌 / Each player receives 3 cards
@@ -36,8 +14,6 @@ Players invest in 6 different companies and compete to become majority sharehold
 ### 反垄断规则 / Anti-Monopoly Rule
 ⚠️ **重要**：持有某公司最多投资牌的玩家（大股东）不能从市场抽取该公司的新牌！
 
-⚠️ **Important**: Majority shareholders cannot draw cards of their company from the market!
-
 ### 收益结算 / Settlement
 当抽牌堆耗尽时 / When the deck is empty:
 - 每家公司的大股东获利 / Majority shareholders earn profits
@@ -48,24 +24,6 @@ Players invest in 6 different companies and compete to become majority sharehold
 ### 游戏结束 / Game End
 当所有玩家都作为起始玩家完成一局后，得分最高者获胜。
 
-After each player has been the starting player once, the highest score wins.
-
-## 🛠️ 技术栈 / Tech Stack
-
-### 前端 / Frontend
-- React 18
-- TypeScript
-- Tailwind CSS
-- Socket.io Client
-- Vite
-
-### 后端 / Backend
-- Node.js
-- Express
-- Socket.io
-- TypeScript
-
-## 📦 本地开发 / Local Development
 
 ### 前置要求 / Prerequisites
 - Node.js 18+
@@ -191,24 +149,6 @@ docker run -p 3001:3001 -e CLIENT_URL=https://your-frontend.vercel.app chuchuang
 - `gameFinished`: 游戏结束 / Game finished
 - `error`: 错误信息 / Error message
 
-## 🎨 游戏截图 / Screenshots
 
-待添加 / To be added
-
-## 🤝 贡献 / Contributing
-
-欢迎提交问题和拉取请求！
-
-Issues and pull requests are welcome!
-
-## 📄 许可证 / License
-
-MIT License
-
-## 👥 作者 / Authors
-
-初创公司游戏团队 / Chuchuang Game Team
-
----
 
 仅供个人学习使用 / For personal learning use only
