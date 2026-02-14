@@ -4,7 +4,7 @@
 
 ### 1. BoardGameGeek (BGG)
 
-**网址**: https://boardgamearek.com
+**网址**: https://boardgamegeek.com
 
 **如何使用**:
 1. 搜索游戏名称
