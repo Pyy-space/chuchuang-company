@@ -91,7 +91,7 @@ const WaitingRoom: React.FC<WaitingRoomProps> = ({ room, currentPlayerId, onSetR
         </div>
 
         <div className="mt-6 text-center text-sm text-gray-500">
-          <p>分享房间码给朋友加入游戏</p>
+          <p>分享房间码给朋友加入游戏哦🙂</p>
           <p>Share the room code with friends to join</p>
         </div>
       </div>

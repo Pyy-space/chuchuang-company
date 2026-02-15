@@ -95,6 +95,9 @@ const Lobby: React.FC<LobbyProps> = ({ onCreateRoom, onJoinRoom, loading }) => {
 
             <section className="mt-8 pt-8 border-t border-gray-200">
               <h3 className="text-xl font-semibold mb-4">游戏介绍 / Game Introduction</h3>
+              <p className="text-xs text-red-500 mb-3 text-center">
+                视频来源于B站，无任何商业用途❗️
+              </p>
               <div className="w-full bg-black rounded-lg overflow-hidden">
                 <video
                   controls
@@ -123,9 +126,9 @@ const Lobby: React.FC<LobbyProps> = ({ onCreateRoom, onJoinRoom, loading }) => {
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full">
         <h1 className="text-4xl font-bold text-center mb-2 text-gray-800">
-          初创公司
+          Startups Game
         </h1>
-        <p className="text-center text-gray-600 mb-8">Startup Investment Game</p>
+        <p className="text-center text-gray-600 mb-8"> Pleace read the rules before playing.</p>
 
         {mode === 'menu' && (
           <div className="space-y-4">
@@ -134,21 +137,24 @@ const Lobby: React.FC<LobbyProps> = ({ onCreateRoom, onJoinRoom, loading }) => {
               disabled={loading}
               className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
             >
-              创建房间 / Create Room
+              Create Room
             </button>
             <button
               onClick={() => setMode('join')}
               disabled={loading}
               className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition disabled:opacity-50"
             >
-              加入房间 / Join Room
+              Join Room
             </button>
             <button
               onClick={() => setShowRules(true)}
               className="w-full bg-gray-600 text-white py-3 rounded-lg hover:bg-gray-700 transition"
             >
-              游戏规则 / Rules
+               Rules
             </button>
+            <p className="text-center text-xs text-red-500 mt-4">
+              声明：本游戏仅供个人娱乐，无任何商业用途❗️
+            </p>
           </div>
         )}
 

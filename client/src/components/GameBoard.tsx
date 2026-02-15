@@ -435,7 +435,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
                 className="w-20 h-28 rounded-lg shadow-md bg-gradient-to-br from-gray-600 to-gray-800 text-white font-bold transition hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="text-center">
-                  <div className="text-3xl">🎴</div>
+                  <div className="text-3xl">🗃️</div>
                   <div className="text-xs mt-1">{gameState.deck.length}</div>
                 </div>
               </button>
