@@ -92,6 +92,20 @@ const Lobby: React.FC<LobbyProps> = ({ onCreateRoom, onJoinRoom, loading }) => {
               <p>当所有玩家都作为起始玩家完成一局后，得分最高者获胜。</p>
               <p className="text-gray-600">After each player has been the starting player once, highest score wins.</p>
             </section>
+
+            <section className="mt-8 pt-8 border-t border-gray-200">
+              <h3 className="text-xl font-semibold mb-4">游戏介绍 / Game Introduction</h3>
+              <div className="w-full bg-black rounded-lg overflow-hidden">
+                <video
+                  controls
+                  className="w-full"
+                  preload="metadata"
+                >
+                  <source src="/chuchuang-company/introduction.mp4" type="video/mp4" />
+                  您的浏览器不支持视频播放 / Your browser does not support the video tag.
+                </video>
+              </div>
+            </section>
           </div>
 
           <button
